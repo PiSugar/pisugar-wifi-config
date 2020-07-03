@@ -6,6 +6,7 @@ import threading
 import time
 import re
 import logging
+import tempfile
 
 import dbus
 import dbus.exceptions
@@ -42,6 +43,10 @@ CUSTOM_INFO_COUNT= 'FD2BCCAA0000'
 CUSTOM_INFO= 'FD2BCCCB'
 CUSTOM_COMMAND_LABEL= 'FD2BCCCC'
 CUSTOM_COMMAND_COUNT= 'FD2BCCAC0000'
+
+SSH_CHRC='fd2b4448-aa0f-4a15-a62f-eb0be77a0020'
+
+WPA_CONFIG = '/etc/wpa_supplicant/wpa_supplicant.conf'
 
 mainloop = None
 
@@ -419,7 +424,7 @@ class DeviceModelDescriptor(Descriptor):
 
 class ReadWifiNameThread(threading.Thread):
     def __init__(self, chrc):
-        super(ReadWifiNameThread, self).__init__()
+        super().__init__()
         self.chrc = chrc
         self.wifi_name = ''
 
@@ -431,7 +436,7 @@ class ReadWifiNameThread(threading.Thread):
                 ssid = matches.group(1)
                 if self.wifi_name != ssid:
                     self.wifi_name = ssid
-                self.chrc.PropertiesChanged(GATT_CHRC_IFACE, {'Value': dbus.ByteArray(self.wifi_name.encode())}, [])
+                    self.chrc.PropertiesChanged(GATT_CHRC_IFACE, {'Value': dbus.ByteArray(self.wifi_name.encode())}, [])
                 time.sleep(1)
             except Exception as e:
                 print(str(e))
@@ -464,14 +469,22 @@ class WifiNameChrc(Characteristic):
 
 class ReadIPAddrThread(threading.Thread):
     def __init__(self, chrc):
-        super(ReadIPAddrThread, self).__init__()
+        super().__init__()
         self.chrc = chrc
-        self.ip_addr = '127.0.0.1'
+        self.ip_addr = ''
 
     def run(self):
         while self.chrc.notifying:
-            time.sleep(1)
-            self.chrc.PropertiesChanged(GATT_CHRC_IFACE, {'Value': dbus.ByteArray(self.ip_addr.encode())}, [])
+            try:
+                output = subprocess.check_output(['ifconfig', 'wlan0']).decode()
+                matches = re.match(r'.*inet6?\s(\S*)\s.*', output, re.M|re.I)
+                ip_addr = matches.group(1)
+                if self.ip_addr != ip_addr:
+                    self.ip_addr = ip_addr
+                    self.chrc.PropertiesChanged(GATT_CHRC_IFACE, {'Value': dbus.ByteArray(self.ip_addr.encode())}, [])
+                time.sleep(1)
+            except Exception as e:
+                print(str(e))
 
 
 class IPAddressChrc(Characteristic):
@@ -500,14 +513,24 @@ class IPAddressChrc(Characteristic):
 
 
 def set_wifi(ssid, password):
-    template = """
-    network = {
-        ssid = "{}"
-        scan_ssid = 1
-        psk = "{}"
-    }
-    """
-
+    template = '''
+network = {
+    ssid="{}"
+    scan_ssid=1
+    psk="{}"
+    priority=0
+}
+    '''
+    content = template.format(ssid, password)
+    try:
+        f = tempfile.NamedTemporaryFile(mode='w+')
+        path = f.name()
+        f.write(content)
+        f.flush()
+        subprocess.run(['killall', 'wpa_supplicant'])
+        subprocess.run(['wpa_supplicant', '-B', '-i', 'wlan0', '-c', path])
+    except Exception as e:
+        print(str(e))
 
 def parse_and_set_wifi(msg):
     configs = msg.split(sep=self.SEP)
@@ -583,6 +606,33 @@ class InputSepChrc(Characteristic):
         except:
             pass
 
+class CommandThread(threading.Thread):
+    def __init__(self, chrc, cmd):
+        super().__init__()
+        self.chrc = chrc
+        self.cmd = cmd
+    
+    def run(self):
+        try:
+            output = subprocess.run(['bash', '-c', self.msg])
+            self.chrc.PropertiesChanged(GATT_CHRC_IFACE, {'Value': dbus.ByteArray(output.encode())}, [])
+        except Exception as e:
+            print(str(e))
+
+class CommandChrc(Characteristic):
+    UUID = 'fd2b4448-aa0f-4a15-a62f-eb0be77a0020'
+
+    def __init__(self, bus, index, service):
+        super().__init__(bus, index, self.UUID, ['write', 'write-without-response', 'notify'], service)
+
+    def WriteValue(self, value, options):
+        msg = bytes([x for x in value])
+        try:
+            cmd_thread = CommandThread(self, msg.decode('utf8'))
+            cmd_thread.start()
+        except Exception as ex:
+            print(str(ex))
+
 
 class PiSugarWifiConfigService(Service):
     """
@@ -600,6 +650,7 @@ class PiSugarWifiConfigService(Service):
         self.add_characteristic(InputChrc(bus, 4, self))
         self.add_characteristic(InputSepChrc(bus, 5, self))
         self.add_characteristic(InputNotifyMessageChrc(bus, 6, self))
+        self.add_characteristic(CommandChrc(bus, 7, self))
 
 
 class PiSugarWifiConfigApplication(Application):
