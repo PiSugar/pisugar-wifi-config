@@ -10,8 +10,24 @@ jobs:
   build-all:
     runs-on: ubuntu-latest
     steps:
+      # Checkout
       - name: Checkout
         uses: actions/checkout@v2
+
+      # Prepare
       - run: sudo apt install python3-setuptools
+
+      # Build
       - name: Build
         run: python3 setup.py sdist
+
+      # Development Release
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          title: "Development Build"
+          prerelease: true
+          draft: false
+          files: |
+            /*
