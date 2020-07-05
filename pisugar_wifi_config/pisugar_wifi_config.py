@@ -7,6 +7,7 @@ import time
 import re
 import logging
 import tempfile
+import signal
 
 import dbus
 import dbus.exceptions
@@ -47,6 +48,9 @@ CUSTOM_COMMAND_COUNT= 'FD2BCCAC0000'
 SSH_CHRC='fd2b4448-aa0f-4a15-a62f-eb0be77a0020'
 
 WPA_CONFIG = '/etc/wpa_supplicant/wpa_supplicant.conf'
+
+SEP = '%&%'
+END = '&#&'
 
 mainloop = None
 
@@ -431,13 +435,15 @@ class ReadWifiNameThread(threading.Thread):
     def run(self):
         while self.chrc.notifying:
             try:
-                output = subprocess.check_output(['iwconfig', 'wlan0']).decode()
-                matches = re.match(r'ESSID:"(.*)"$', output, re.M|re.I)
-                ssid = matches.group(1)
-                if self.wifi_name != ssid:
-                    self.wifi_name = ssid
-                    self.chrc.PropertiesChanged(GATT_CHRC_IFACE, {'Value': dbus.ByteArray(self.wifi_name.encode())}, [])
                 time.sleep(1)
+                output = subprocess.check_output(['iwconfig', 'wlan0']).decode()
+                lines = output.split('\n')
+                for line in lines:
+                    matches = re.match(r'.*ESSID:"(.*)"', line, re.M|re.I)
+                    if matches:
+                        self.wifi_name = matches.group(1)
+                        self.chrc.PropertiesChanged(GATT_CHRC_IFACE, {'Value': dbus.ByteArray(self.wifi_name.encode())}, [])
+                        break
             except Exception as e:
                 print(str(e))
 
@@ -476,13 +482,15 @@ class ReadIPAddrThread(threading.Thread):
     def run(self):
         while self.chrc.notifying:
             try:
-                output = subprocess.check_output(['ifconfig', 'wlan0']).decode()
-                matches = re.match(r'.*inet6?\s(\S*)\s.*', output, re.M|re.I)
-                ip_addr = matches.group(1)
-                if self.ip_addr != ip_addr:
-                    self.ip_addr = ip_addr
-                    self.chrc.PropertiesChanged(GATT_CHRC_IFACE, {'Value': dbus.ByteArray(self.ip_addr.encode())}, [])
                 time.sleep(1)
+                output = subprocess.check_output(['ifconfig', 'wlan0']).decode()
+                lines = output.split('\n')
+                for line in lines:
+                    matches = re.match(r'.*inet6?\s(\S*)\s.*', line, re.M|re.I)
+                    if matches:
+                        self.ip_addr = matches.group(1)
+                        self.chrc.PropertiesChanged(GATT_CHRC_IFACE, {'Value': dbus.ByteArray(self.ip_addr.encode())}, [])
+                        break
             except Exception as e:
                 print(str(e))
 
@@ -513,27 +521,32 @@ class IPAddressChrc(Characteristic):
 
 
 def set_wifi(ssid, password):
-    template = '''
-network = {
-    ssid="{}"
-    scan_ssid=1
-    psk="{}"
-    priority=0
-}
-    '''
-    content = template.format(ssid, password)
+    print("set_wifi ssid: " + ssid + ", password: " + password)
     try:
-        f = tempfile.NamedTemporaryFile(mode='w+')
-        path = f.name()
-        f.write(content)
+        content = subprocess.check_output(['wpa_passphrase', ssid, password]).decode()
+        f = open(WPA_CONFIG, 'r')
+        wpa = f.read()
+        f.close()
+        
+        r = r'.*(network.*={.*ssid.*=.*' + ssid + r'.*}\S*\n*).*'
+        matches = re.match(r, wpa, re.M|re.DOTALL)
+        if matches:
+            m = matches.group(1)
+            wpa = wpa.replace(m, '')
+        wpa += '\n' + content
+        
+        print(WPA_CONFIG + " : " + wpa)
+        f = open(WPA_CONFIG, 'w')
+        f.write(wpa)
         f.flush()
-        subprocess.run(['killall', 'wpa_supplicant'])
-        subprocess.run(['wpa_supplicant', '-B', '-i', 'wlan0', '-c', path])
+        f.close()
+
+        subprocess.run(['systemctl', 'restart', 'wpa_supplicant'])
     except Exception as e:
         print(str(e))
 
 def parse_and_set_wifi(msg):
-    configs = msg.split(sep=self.SEP)
+    configs = msg.split(SEP)
     if len(configs) != 3:
         print('Error config')
     else:
@@ -548,7 +561,6 @@ class InputChrc(Characteristic):
     Set wifi SSID and password.
     """
     UUID = 'fd2b4448-aa0f-4a15-a62f-eb0be77a0005'
-    SEP = '%&%'
 
     def __init__(self, bus, index, service):
         super().__init__(bus, index, self.UUID, ['write', 'write-without-response'], service)
@@ -579,8 +591,6 @@ class InputNotifyMessageChrc(Characteristic):
 
 class InputSepChrc(Characteristic):
     UUID = 'fd2b4448-aa0f-4a15-a62f-eb0be77a0007'
-    SEP = '%&%'
-    END = '&#&'
 
     def __init__(self, bus, index, service):
         super().__init__(bus, index, self.UUID, ['write', 'write-without-response'], service)
@@ -600,11 +610,12 @@ class InputSepChrc(Characteristic):
 
         try:
             full_msg = self.full_msg.decode('utf8')
-            if full_msg.endswith(self.END):
+            if full_msg.endswith(END):
                 print('InputSepChrc: ' + full_msg)
+                full_msg = full_msg.split(END)[0]
                 parse_and_set_wifi(full_msg)
-        except:
-            pass
+        except Exception as e:
+            print(str(e))
 
 class CommandThread(threading.Thread):
     def __init__(self, chrc, cmd):
@@ -696,6 +707,10 @@ def register_ad_error_cb(error):
     print('Failed to register advertisement: ' + str(error))
     mainloop.quit()
 
+def handle_signal(signum, frame):
+    global mainloop
+    print("Signal: " + signum)
+    mainloop.quit()
 
 def main():
     global mainloop
@@ -733,11 +748,15 @@ def main():
                                      error_handler=register_ad_error_cb)
 
     # run mainloop
-    mainloop.run()
+    try:
+        mainloop.run()
+    except Exception as e:
+        print(str(e))
 
     # stop advertising
+    print("Stop advertising...")
     ad_manager.UnregisterAdvertisement(adv)
     dbus.service.Object.remove_from_connection(adv)
- 
+
 if __name__ == '__main__':
     main()
