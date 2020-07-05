@@ -1,5 +1,0 @@
-Package: pisugar-wifi-config
-Version: 0.0.1
-Architecture: amd64
-Maintainer: PiSugar
-Description: PiSugar BLE wifi config tool

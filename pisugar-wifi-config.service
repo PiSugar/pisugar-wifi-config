@@ -1,0 +1,13 @@
+[Unit]
+Description=pisugar-wifi-config
+
+[Service]
+ExecStart=pisugar-wifi-config
+ExecStop=/bin/kill $MAINPID
+Type=simple
+KillMode=process
+Restart=on-failure
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
