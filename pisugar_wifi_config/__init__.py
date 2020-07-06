@@ -516,30 +516,15 @@ class IPAddressChrc(Characteristic):
 
 def set_wifi(ssid, password):
     try:
-        # Read wpa_supplicant.conf
-        f = open(WPA_CONFIG, 'r')
-        wpa = f.read()
-        f.close()
-        
-        # Remove existing network with same ssid
-        r = r'.*(network\S*=\S*{.*ssid\S*=\S*["\']?' + ssid + r'["\']?\S*\n.*}\S*\n*).*'
-        matches = re.match(r, wpa, re.M|re.DOTALL)
-        if matches:
-            m = matches.group(1)
-            wpa = wpa.replace(m, '')
-
+        # Tempfile
+        f = tempfile.NamedTemporaryFile('w+')
         # Append new network
         content = subprocess.check_output(['wpa_passphrase', ssid, password]).decode()
-        wpa += '\n' + content
-
-        # Overwrite
-        f = open(WPA_CONFIG, 'w')
-        f.write(wpa)
+        f.write(content)
         f.flush()
-        f.close()
-
         # Restart service
-        subprocess.run(['systemctl', 'restart', 'wpa_supplicant'])
+        subprocess.run(['killall', 'wpa_supplicant'])
+        subprocess.run(['wpa_supplicant', '-B', '-i', 'wlan0', '-c', f.name])
     except Exception as e:
         print(str(e))
 

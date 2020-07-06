@@ -1,4 +1,7 @@
 # pisugar-wifi-config
+
+![PR build on master](https://github.com/PiSugar/pisugar-wifi-config/workflows/PR%20build%20on%20master/badge.svg)
+
 PiSugar BLE wifi config tool. This is a BLE GATT server to config raspberry pi wifi.
 
 Wifi configuration is not an easy job with raspberry pi. When you bring pi to an unfamiliar place, 
