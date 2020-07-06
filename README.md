@@ -12,13 +12,7 @@ NOTE: Users need to launch `PiSugar` wechat mini program to communicate with `pi
 ## Build
 Build and package
 
-    sudo apt install debhelper virtualenv python3-setuptools python3-all
-    virtualenv -p python3 venv
-    source venv/bin/activate
-    pip3 install stdeb
-    python3 setup.py --command-packages=stdeb.command sdist_dsc --with-python2=False \
-        --with-python3=True bdist_deb
-    (cd deb_dist/pisugar-wifi-config-0.1 && dpkg-buildpackage -rfakeroot -uc -us)
+    sudo bash build.sh
 
 ## Installation
 Install bluez
@@ -35,12 +29,6 @@ bluez from source.
 Download `pisugar-wifi-config_<version>.deb` from https://github.com/PiSugar/pisugar-wifi-config/releases , and install
 
     sudo dpkg -i pisugar-wifi-config_<version>.deb
-
-Enable systemd service, optional but recommended
-
-    sudo systemctl daemon-reload
-    sudo systemctl enable pisugar-wifi-config
-    sudo systemctl start pisugar-wifi-config
 
 ## Bug report
 Report bugs here: https://github.com/PiSugar/pisugar-wifi-config/issues
