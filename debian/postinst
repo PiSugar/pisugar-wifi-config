@@ -1,0 +1,9 @@
+#!/bin/sh
+
+deb-systemd-helper unmask pisugar-wifi-config.service >/dev/null || true
+if deb-systemd-helper --quiet was-enabled pisugar-wifi-config.service; then
+  deb-systemd-helper enable pisugar-wifi-config.service >/dev/null || true
+  deb-systemd-invoke start pisugar-wifi-config.service
+else
+  deb-systemd-helper update-state pisugar-wifi-config.service >/dev/null || true
+fi

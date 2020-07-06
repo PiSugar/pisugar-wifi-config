@@ -14,12 +14,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      # Prepare
-      - run: sudo apt install python3-setuptools
-
       # Build
-      - name: Build
-        run: python3 setup.py sdist
+      - run: bash -x build.sh
 
       # Development Release
       - uses: "marvinpinto/action-automatic-releases@latest"
@@ -30,4 +26,4 @@ jobs:
           prerelease: true
           draft: false
           files: |
-            dist/*
+            build/*.deb

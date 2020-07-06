@@ -56,7 +56,7 @@ mainloop = None
 
 
 class Advertisement(dbus.service.Object):
-    PATH_BASE = '/org/bluez/example/advertisement'
+    PATH_BASE = '/com/pisugar/wifi-config/advertisement'
 
     def __init__(self, bus, index, advertising_type):
         self.path = self.PATH_BASE + str(index)
@@ -191,7 +191,7 @@ class Service(dbus.service.Object):
     """
     org.bluez.GattService1 interface implementation
     """
-    PATH_BASE = '/org/bluez/example/service'
+    PATH_BASE = '/com/pisugar/wifi-config/service'
 
     def __init__(self, bus, index, uuid, primary):
         self.path = self.PATH_BASE + str(index)
@@ -515,26 +515,30 @@ class IPAddressChrc(Characteristic):
 
 
 def set_wifi(ssid, password):
-    print("set_wifi ssid: " + ssid + ", password: " + password)
     try:
-        content = subprocess.check_output(['wpa_passphrase', ssid, password]).decode()
+        # Read wpa_supplicant.conf
         f = open(WPA_CONFIG, 'r')
         wpa = f.read()
         f.close()
         
+        # Remove existing network with same ssid
         r = r'.*(network.*={.*ssid.*=.*' + ssid + r'.*}\S*\n*).*'
         matches = re.match(r, wpa, re.M|re.DOTALL)
         if matches:
             m = matches.group(1)
             wpa = wpa.replace(m, '')
+
+        # Append new network
+        content = subprocess.check_output(['wpa_passphrase', ssid, password]).decode()
         wpa += '\n' + content
-        
-        print(WPA_CONFIG + " : " + wpa)
+
+        # Overwrite
         f = open(WPA_CONFIG, 'w')
         f.write(wpa)
         f.flush()
         f.close()
 
+        # Restart service
         subprocess.run(['systemctl', 'restart', 'wpa_supplicant'])
     except Exception as e:
         print(str(e))
@@ -593,12 +597,11 @@ class InputSepChrc(Characteristic):
 
     def WriteValue(self, value, options):
         msg = bytes([x for x in value])
+
+        # Clear old content, 1s
         timestamp = time.time()
-        
-        # Clear old content
         if timestamp - self.last_update_at > 1:
             self.full_msg = b''
-        
         self.last_update_at = timestamp
         self.full_msg += msg
 
