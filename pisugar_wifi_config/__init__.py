@@ -56,7 +56,7 @@ mainloop = None
 
 
 class Advertisement(dbus.service.Object):
-    PATH_BASE = '/com/pisugar/wifi-config/advertisement'
+    PATH_BASE = '/com/pisugar/wifi/advertisement'
 
     def __init__(self, bus, index, advertising_type):
         self.path = self.PATH_BASE + str(index)
@@ -191,7 +191,7 @@ class Service(dbus.service.Object):
     """
     org.bluez.GattService1 interface implementation
     """
-    PATH_BASE = '/com/pisugar/wifi-config/service'
+    PATH_BASE = '/com/pisugar/wifi/service'
 
     def __init__(self, bus, index, uuid, primary):
         self.path = self.PATH_BASE + str(index)
