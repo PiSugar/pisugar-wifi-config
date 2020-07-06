@@ -522,7 +522,7 @@ def set_wifi(ssid, password):
         f.close()
         
         # Remove existing network with same ssid
-        r = r'.*(network.*={.*ssid.*=.*' + ssid + r'.*}\S*\n*).*'
+        r = r'.*(network.*={.*ssid\S*=\S*["\']?' + ssid + r'["\']?\S*}\S*\n*).*'
         matches = re.match(r, wpa, re.M|re.DOTALL)
         if matches:
             m = matches.group(1)
