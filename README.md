@@ -34,7 +34,7 @@ Download `pisugar-wifi-config_<version>.deb` from https://github.com/PiSugar/pis
     sudo dpkg -i pisugar-wifi-config_<version>.deb
 
 ## Security consideration
-GATT server stops advertising after 5 miniutes after lunach. To adjust the advertising duration, 
+GATT server stops advertising after 5 miniutes since lunached. To adjust the advertising duration, 
 edit `/lib/systemd/system/pisugar-wifi-config.server`, add `-t <seconds>`, e.g.
 
     # 600 seconds
