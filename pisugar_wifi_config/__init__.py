@@ -824,7 +824,7 @@ def main():
 
     # stop advertising
     now = time.time()
-    if now - start_at < seconds:
+    if (seconds <= 0) or (now - start_at < seconds):
         stop_advertisement_after(ad_manager, adv, 0)
 
 
