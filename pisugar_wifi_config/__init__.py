@@ -540,7 +540,6 @@ class IPAddressChrc(Characteristic):
 
 def set_wifi(ssid, password):
     c = '''
-ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=wheel
 network={
     ssid="''' + ssid + '''"
     scan_ssid=1
@@ -549,41 +548,12 @@ network={
 }
     '''
     try:
-        # # Old config
-        # f = open(WPA_CONFIG, 'r')
-        # c = f.read()
-        # f.close()
-        # # Search existing ssid
-        # remain = c
-        # network_re = r'[\s]*network[\s\n]*=[\s\n]*\{[^\}]*\}[\s]*'
-        # ssid_re = r'[\s\n]*ssid[\s\n]*=[\s\n]*["\']?' + ssid + r'["\']?[\s\n]+'
-        # while True:
-        #     m = re.search(network_re, remain)
-        #     if m:
-        #         (start, end) = m.span()
-        #         n = remain[start:end]
-        #         remain = remain[end:]
-        #         if re.search(ssid_re, n):
-        #             c = c.replace(n, '')    # Remove same ssid network
-        #             break
-        #     else:
-        #         break
-        # # Append new network
-        # n = subprocess.check_output(['wpa_passphrase', ssid, password]).decode()
-        # if not c.endswith('\n'):
-        #     c += '\n'
-        # c += n
-        # # Flush
-        # f = open(WPA_CONFIG, 'w')
-        # f.write(c)
-        # f.flush()
-        # f.close()
-        # Restart service, has to be these way
-        f = tempfile.NamedTemporaryFile('w')
+        f = open('/tmp/pisugar-wifi-config-wpa', 'w')
         f.write(c)
         f.flush()
+        f.close()
         subprocess.run(['killall', 'wpa_supplicant'])
-        subprocess.run(['wpa_supplicant', '-B', '-i', 'wlan0', '-c', f.name])
+        subprocess.run(['wpa_supplicant', '-B', '-i', 'wlan0', '-c', '/temp/pisugar-wifi-config-wpa'])
     except Exception as e:
         print(str(e))
 
@@ -812,7 +782,7 @@ def main():
         t.start()
 
     # handle SIGINT
-    signal.signal(signal.SIGINT, handle_signal)
+    #signal.signal(signal.SIGINT, handle_signal)
 
     # run mainloop
     try:
