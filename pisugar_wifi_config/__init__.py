@@ -516,15 +516,37 @@ class IPAddressChrc(Characteristic):
 
 def set_wifi(ssid, password):
     try:
-        # Tempfile
-        f = tempfile.NamedTemporaryFile('w+')
+        # Old config
+        f = open(WPA_CONFIG, 'r')
+        c = f.read()
+        f.close()
+        # Search existing ssid
+        remain = c
+        network_re = r'[\s\n]*network[\s\n]*=[\s\n]*\{[^\}]*\}[\s]*'
+        ssid_re = r'[\s\n]*ssid[\s\n]*=[\s\n]*["\']?' + ssid + r'["\']?[\s\n]+'
+        while True:
+            m = re.search(network_re, remain)
+            if m:
+                (start, end) = m.span()
+                n = remain[start:end]
+                remain = remain[end+1:]
+                if re.search(ssid_re, n):
+                    c = c.replace(n, '')    # Remove same ssid network
+                    break
+            else:
+                break
         # Append new network
-        content = subprocess.check_output(['wpa_passphrase', ssid, password]).decode()
-        f.write(content)
+        n = subprocess.check_output(['wpa_passphrase', ssid, password]).decode()
+        if not c.endswith('\n'):
+            c += '\n'
+        c += n
+        # Flush
+        f = open(WPA_CONFIG, 'w')
+        f.write(c)
         f.flush()
+        f.close()
         # Restart service
-        subprocess.run(['killall', 'wpa_supplicant'])
-        subprocess.run(['wpa_supplicant', '-B', '-i', 'wlan0', '-c', f.name])
+        subprocess.run(['systemctl', 'restart', 'wpa_supplicant'])
     except Exception as e:
         print(str(e))
 
