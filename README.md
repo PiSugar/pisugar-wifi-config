@@ -10,7 +10,8 @@ having no keyboard, no display, it is not possible to reconfigure the rpi's wifi
 `pisugar-wifi-config` makes it easy to talk to rpi via BLE and setup the wifi configuration. Your rpi 
 could be discovered by BLE advertisement, then configurated by pushing a simple SSID/password message.
 
-NOTE: Users need to launch `PiSugar` wechat mini program to communicate with `pisugar-wifi-config`.
+NOTE 1: Users need to launch `PiSugar` wechat mini program to communicate with `pisugar-wifi-config`.
+NOTE 2: Only WPA-PSK is supported.
 
 ## Build
 Build and package
@@ -38,8 +39,10 @@ GATT server stops advertising after 5 miniutes since lunached. To adjust the adv
 edit `/lib/systemd/system/pisugar-wifi-config.server`, add `-t <seconds>`, e.g.
 
     # 600 seconds
-    sed -e 's|ExecStart=.*|ExecStart=/usr/bin/pisugar-wifi-config -t 600|g'
+    sudo sed -e 's|ExecStart=.*|ExecStart=/usr/bin/pisugar-wifi-config -t 600|g'
         -i /lib/systemd/system/pisugar-wifi-config.server
+    sudo systemctl daemon-reload
+    sudo systemctl restart pisugar-wifi-config
 
 If advertising duration less or equal than 0, GATT server would never stop advertising.
 

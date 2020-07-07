@@ -812,9 +812,8 @@ def main():
         t = threading.Thread(target=stop_advertisement_after, args=(ad_manager, adv, seconds), daemon=True)
         t.start()
 
-    # handle SIGINT/SIGTERM
+    # handle SIGINT
     signal.signal(signal.SIGINT, handle_signal)
-    signal.signal(signal.SIGTERM, handle_signal)
 
     # run mainloop
     try:
