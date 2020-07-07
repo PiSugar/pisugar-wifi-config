@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import argparse
 import sys
 import subprocess
 import threading
@@ -429,13 +430,13 @@ class DeviceModelDescriptor(Descriptor):
 class ReadWifiNameThread(threading.Thread):
     def __init__(self, chrc):
         super().__init__()
+        self.daemon = True
         self.chrc = chrc
         self.wifi_name = ''
 
     def run(self):
         while self.chrc.notifying:
             try:
-                time.sleep(1)
                 output = subprocess.check_output(['iwconfig', 'wlan0']).decode()
                 lines = output.split('\n')
                 for line in lines:
@@ -444,8 +445,10 @@ class ReadWifiNameThread(threading.Thread):
                         self.wifi_name = matches.group(1)
                         self.chrc.PropertiesChanged(GATT_CHRC_IFACE, {'Value': dbus.ByteArray(self.wifi_name.encode())}, [])
                         break
+                time.sleep(3)
             except Exception as e:
                 print(str(e))
+                time.sleep(5)
 
 
 class WifiNameChrc(Characteristic):
@@ -473,13 +476,13 @@ class WifiNameChrc(Characteristic):
 class ReadIPAddrThread(threading.Thread):
     def __init__(self, chrc):
         super().__init__()
+        self.daemon = True
         self.chrc = chrc
         self.ip_addr = ''
 
     def run(self):
         while self.chrc.notifying:
             try:
-                time.sleep(1)
                 output = subprocess.check_output(['ifconfig', 'wlan0']).decode()
                 lines = output.split('\n')
                 for line in lines:
@@ -488,8 +491,10 @@ class ReadIPAddrThread(threading.Thread):
                         self.ip_addr = matches.group(1)
                         self.chrc.PropertiesChanged(GATT_CHRC_IFACE, {'Value': dbus.ByteArray(self.ip_addr.encode())}, [])
                         break
+                time.sleep(3)
             except Exception as e:
                 print(str(e))
+                time.sleep(5)
 
 
 class IPAddressChrc(Characteristic):
@@ -529,7 +534,7 @@ def set_wifi(ssid, password):
             if m:
                 (start, end) = m.span()
                 n = remain[start:end]
-                remain = remain[end+1:]
+                remain = remain[end:]
                 if re.search(ssid_re, n):
                     c = c.replace(n, '')    # Remove same ssid network
                     break
@@ -624,6 +629,7 @@ class InputSepChrc(Characteristic):
 class CommandThread(threading.Thread):
     def __init__(self, chrc, cmd):
         super().__init__()
+        self.daemon = True
         self.chrc = chrc
         self.cmd = cmd
     
@@ -711,13 +717,29 @@ def register_ad_error_cb(error):
     print('Failed to register advertisement: ' + str(error))
     mainloop.quit()
 
+
 def handle_signal(signum, frame):
     global mainloop
-    print("Signal: " + signum)
+    print("Signal: " + str(signum))
     mainloop.quit()
+
+
+def stop_advertisement_after(ad_manager, adv, seconds):
+    if seconds > 0:
+        time.sleep(seconds)
+    print('Stop advertising...')
+    ad_manager.UnregisterAdvertisement(adv)
+    dbus.service.Object.remove_from_connection(adv)
+
 
 def main():
     global mainloop
+
+    parser = argparse.ArgumentParser(description='PiSugar BLE wifi config')
+    parser.add_argument('-t', '--time', dest='time', type=int, nargs='?', default=300,
+                        help='Bluetooth advertising duration time in seconds (<=0: never stop)')
+    args = parser.parse_args()
+    seconds = args.time
 
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     bus = dbus.SystemBus()
@@ -751,6 +773,16 @@ def main():
                                      reply_handler=register_ad_cb,
                                      error_handler=register_ad_error_cb)
 
+    # stop adevertising after n seconds
+    start_at = time.time()
+    if seconds and seconds >= 0:
+        t = threading.Thread(target=stop_advertisement_after, args=(ad_manager, adv, seconds), daemon=True)
+        t.start()
+
+    # handle SIGINT/SIGTERM
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
+
     # run mainloop
     try:
         mainloop.run()
@@ -758,9 +790,10 @@ def main():
         print(str(e))
 
     # stop advertising
-    print("Stop advertising...")
-    ad_manager.UnregisterAdvertisement(adv)
-    dbus.service.Object.remove_from_connection(adv)
+    now = time.time()
+    if now - start_at < seconds:
+        stop_advertisement_after(ad_manager, adv, 0)
+
 
 if __name__ == '__main__':
     main()
