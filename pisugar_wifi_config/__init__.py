@@ -546,7 +546,7 @@ def set_wifi(ssid, password):
         f.close()
         # Search existing ssid
         remain = c
-        network_re = r'[\s\n]*network[\s\n]*=[\s\n]*\{[^\}]*\}[\s]*'
+        network_re = r'[\s]*network[\s\n]*=[\s\n]*\{[^\}]*\}[\s]*'
         ssid_re = r'[\s\n]*ssid[\s\n]*=[\s\n]*["\']?' + ssid + r'["\']?[\s\n]+'
         while True:
             m = re.search(network_re, remain)
@@ -569,8 +569,9 @@ def set_wifi(ssid, password):
         f.write(c)
         f.flush()
         f.close()
-        # Restart service
-        subprocess.run(['systemctl', 'restart', 'wpa_supplicant'])
+        # Restart service, has to be these way
+        subprocess.run(['killall', 'wpa_supplicant'])
+        subprocess.run(['wpa_supplicant', '-B', '-i', 'wlan0', '-c', WPA_CONFIG])
     except Exception as e:
         print(str(e))
 
