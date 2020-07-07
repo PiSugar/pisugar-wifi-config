@@ -539,15 +539,15 @@ class IPAddressChrc(Characteristic):
 
 
 def set_wifi(ssid, password):
-    template="""
+    c = '''
 ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=wheel
 network={
-    ssid="{}"
+    ssid="''' + ssid + '''"
     scan_ssid=1
     key_mgmt=WPA-PSK
-    psk="{}"
+    psk="''' + password + '''"
 }
-    """
+    '''
     try:
         # # Old config
         # f = open(WPA_CONFIG, 'r')
@@ -579,7 +579,6 @@ network={
         # f.flush()
         # f.close()
         # Restart service, has to be these way
-        c = template.format(ssid, password)
         f = tempfile.NamedTemporaryFile('w')
         f.write(c)
         f.flush()

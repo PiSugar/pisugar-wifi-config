@@ -39,8 +39,8 @@ GATT server stops advertising after 5 miniutes since lunached. To adjust the adv
 edit `/lib/systemd/system/pisugar-wifi-config.server`, add `-t <seconds>`, e.g.
 
     # 600 seconds
-    sudo sed -e 's|ExecStart=.*|ExecStart=/usr/bin/pisugar-wifi-config -t 600|g'
-        -i /lib/systemd/system/pisugar-wifi-config.server
+    sudo sed -e 's|ExecStart=.*|ExecStart=/usr/bin/pisugar-wifi-config -t 600|g' \
+        -i /lib/systemd/system/pisugar-wifi-config.service
     sudo systemctl daemon-reload
     sudo systemctl restart pisugar-wifi-config
 
