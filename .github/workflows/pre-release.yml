@@ -16,6 +16,9 @@ jobs:
         with:
           ref: master
 
+      # Build
+      - run: bash -x build.sh
+
       # Draft Release
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
