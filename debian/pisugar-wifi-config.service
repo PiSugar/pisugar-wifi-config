@@ -4,7 +4,8 @@ Requires=bluetooth.service dbus.service
 After=bluetooth.service dbus.service
 
 [Service]
-ExecStart=/usr/bin/pisugar-wifi-config
+EnvironmentFile=/etc/default/pisugar-wifi-config
+ExecStart=/usr/bin/pisugar-wifi-config $OPTS
 ExecStop=/bin/kill $MAINPID
 Type=simple
 KillMode=process

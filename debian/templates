@@ -1,0 +1,9 @@
+Template: pisugar-wifi-config/key
+Type: string
+Default: pisugar
+Description: Secret key that allows changing WIFI SSID/psk (default: piusgar).
+
+Template: pisugar-wifi-config/timeout
+Type: string
+Default: 0
+Description: BLE advertising timeout since launched (default 0, <=0 never stop advertising).

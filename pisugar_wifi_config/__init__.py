@@ -54,6 +54,7 @@ SEP = '%&%'
 END = '&#&'
 
 mainloop = None
+notify_msg = ''
 
 class InvalidArgsException(dbus.exceptions.DBusException):
     _dbus_error_name = 'org.freedesktop.DBus.Error.InvalidArgs'
@@ -548,6 +549,7 @@ network={
 }
     '''
     try:
+        # TODO(fengyingcai) should write to /etc/wpa_supplicant/wpa_supplicant.conf
         f = open('/tmp/pisugar-wifi-config-wpa', 'w')
         f.write(c)
         f.flush()
@@ -557,15 +559,19 @@ network={
     except Exception as e:
         print(str(e))
 
-def parse_and_set_wifi(msg):
+def parse_and_set_wifi(msg, key):
     configs = msg.split(SEP)
     if len(configs) != 3:
         print('Error config')
     else:
-        key = configs[0]
+        key2 = configs[0]
+        if key2 != key:
+            return False
+
         ssid = configs[1]
         password = configs[2]
         set_wifi(ssid, password)
+    return True
 
 
 class InputChrc(Characteristic):
@@ -578,27 +584,47 @@ class InputChrc(Characteristic):
         super().__init__(bus, index, self.UUID, ['write', 'write-without-response'], service)
 
     def WriteValue(self, value, options):
+        global notify_msg
+
         msg = bytes([x for x in value])
         try:
             msg = msg.decode('utf-8')
-            parse_and_set_wifi(msg)
+            if not parse_and_set_wifi(msg):
+                notify_msg = 'Invalid key'                
         except Exception as e:
             print('Decode error')
 
+
+class NotifyThread(threading.Thread):
+    def __int__(self, chrc):
+        super().__init__()
+        self.chrc = chrc
+
+    def run(self):
+        global notify_msg
+        while self.chrc.notifying:
+            if notify_msg:
+                try:
+                    self.chrc.PropertiesChanged(GATT_CHRC_IFACE, {'Value': dbus.ByteArray(self.message.encode())}, [])
+                except Exception as e:
+                    print('Notify message failed: ' + str(e))
+                notify_msg = ''
+            time.sleep(1)
 
 class InputNotifyMessageChrc(Characteristic):
     UUID = 'fd2b4448-aa0f-4a15-a62f-eb0be77a0006'
 
     def __init__(self, bus, index, service):
-        Characteristic.__init__(self, bus, index, self.UUID, ['notify'], service)
+        super().__init__(bus, index, self.UUID, ['notify'], service)
+        self.notifying = false
+        self.thread = NotifyThread(self)
 
     def StartNotify(self):
-        # TODO start notify
-        pass
+        if not self.notifying:
+            self.thread.start()
 
     def StopNotify(self):
-        # TODO stop notify
-        pass
+        self.notifying = false
 
 
 class InputSepChrc(Characteristic):
@@ -610,6 +636,8 @@ class InputSepChrc(Characteristic):
         self.full_msg = b''
 
     def WriteValue(self, value, options):
+        global notify_msg
+
         msg = bytes([x for x in value])
 
         # Clear old content, 1s
@@ -624,7 +652,8 @@ class InputSepChrc(Characteristic):
             if full_msg.endswith(END):
                 print('InputSepChrc: ' + full_msg)
                 full_msg = full_msg.split(END)[0]
-                parse_and_set_wifi(full_msg)
+                if not parse_and_set_wifi(full_msg):
+                    notify_msg = 'Invalid key'
         except Exception as e:
             print(str(e))
 
@@ -738,10 +767,13 @@ def main():
     global mainloop
 
     parser = argparse.ArgumentParser(description='PiSugar BLE wifi config')
-    parser.add_argument('-t', '--time', dest='time', type=int, nargs='?', default=300,
+    parser.add_argument('-t', '--time', dest='time', type=int, nargs='?', default=0,
                         help='Bluetooth advertising duration time in seconds (<=0: never stop)')
+    parser.add_argument('-k', '--key', dest='key', type=str, nargs='?', default='pisugar',
+                        help='Secret key that allows changing WIFI SSID/psk.')
     args = parser.parse_args()
     seconds = args.time
+    key = args.key
 
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     bus = dbus.SystemBus()

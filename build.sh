@@ -17,10 +17,16 @@ fakeroot sh -c "
   set -e
   mkdir -p build/old
   dpkg-deb -R deb_dist/${DEB} build/old
+  
   mkdir -p build/old/lib/systemd/system
+  mkdir -p build/old/etc/default
   cp -f debian/pisugar-wifi-config.service build/old/lib/systemd/system
+  cp -f debian/pisugar-wifi-config.default build/old/etc/default/pisugar-wifi-config
+
   (cd build/old && md5sum lib/systemd/system/pisugar-wifi-config.service >> DEBIAN/md5sums)
-  for s in preinst postinst prerm postrm; do
+  (cd build/old && md5sum etc/default/pisugar-wifi-config >> DEBIAN/md5sums)
+
+  for s in config templates preinst postinst prerm postrm; do
     cp -f debian/\$s build/old/DEBIAN/
     chmod +x build/old/DEBIAN/\$s
   done

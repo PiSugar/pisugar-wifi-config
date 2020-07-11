@@ -1,5 +1,26 @@
 #!/bin/sh
 
+if [ -e /usr/share/debconf/confmodule ]; then
+  OPTS=""
+
+  . /usr/share/debconf/confmodule
+
+  db_get pisugar-wifi-config/key
+  if [ "x$RET" == "x" ]; then
+    RET=pisugar
+  fi
+  OPTS="$OPTS --key '$RET'"
+
+  db_get pisugar-wifi-config/timeout
+  if [ "x$RET" == "x" ]; then
+    RET=0
+  fi
+  OPTS="$OPTS --timeout '$RET'"
+
+
+  echo "OPTS=$OPTS" >/etc/default/pisugar-wifi-config
+fi
+
 deb-systemd-helper unmask pisugar-wifi-config.service >/dev/null || true
 if deb-systemd-helper --quiet was-enabled pisugar-wifi-config.service; then
   deb-systemd-helper enable pisugar-wifi-config.service >/dev/null || true

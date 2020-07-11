@@ -1,0 +1,18 @@
+#!/bin/sh -e
+
+. /usr/share/debconf/confmodule
+
+db_reset pisugar-wifi-config/key || true
+
+db_input critical pisugar-wifi-config/key || true
+db_go
+
+while true; do
+    db_input medium pisugar-wifi-config/key || true
+    db_go
+
+    db_get pisugar-wifi-config/timeout
+    if (echo $RET | grep '^[[:digit:]]*$'); then
+        break
+    fi
+done
