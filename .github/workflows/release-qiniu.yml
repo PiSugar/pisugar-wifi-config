@@ -30,7 +30,7 @@ jobs:
           chmod +x qshell
           ./qshell account -w ${QINIU_AK} ${QINIU_SK} deploy-account
 
-          curl https://api.github.com/repos/PiSugar/pisugar-power-manager-rs/releases/latest > latest
+          curl https://api.github.com/repos/PiSugar/pisugar-wifi-config/releases/latest > latest
 
           sudo apt-get install -y jq
           for url in $(jq '.assets[].browser_download_url' latest); do

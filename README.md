@@ -29,6 +29,8 @@ bluez from source.
 
     sudo sed -e 's|ExecStart=.*|ExecStart=/usr/lib/bluetooth/bluetoothd --experimental|g'
         -i /lib/systemd/system/bluetooth.service
+    sudo systemctl daemon-reload
+    sudo systemctl restart bluetooth
 
 Download `pisugar-wifi-config_<version>.deb` from https://github.com/PiSugar/pisugar-wifi-config/releases , and install
 

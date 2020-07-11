@@ -1,14 +1,13 @@
-name: "Pre Release"
+# Hourly build, cache not allowed
+name: Nightly build on master
 
 on:
-  push:
-    tags:
-      - "v*"
+  schedule:
+    - cron: "0 0 * * *"
 
 jobs:
-  pre-release:
-    name: "Pre Release"
-    runs-on: "ubuntu-latest"
+  build-all:
+    runs-on: ubuntu-latest
     steps:
       # Checkout
       - name: Checkout
@@ -19,12 +18,14 @@ jobs:
       # Build
       - run: bash -x build.sh
 
-      # Draft Release
+      # Development Release
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          prerelease: false
-          draft: true
+          automatic_release_tag: "latest"
+          title: "Development Build"
+          prerelease: true
+          draft: false
           files: |
             build/*.deb
 
@@ -35,6 +36,7 @@ jobs:
           QINIU_AK: ${{ secrets.QINIU_AK }}
           QINIU_SK: ${{ secrets.QINIU_SK }}
         run: |
+          run: |
           sudo apt-get update
           sudo apt-get install -y unzip
 
